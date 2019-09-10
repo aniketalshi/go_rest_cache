@@ -1,0 +1,5 @@
+server:
+    port: 8000
+
+redis:
+    url: "redis:6379"
