@@ -5,8 +5,10 @@ import (
 	//"github.com/go-redis/redis"
 	"log"
 	//"go.uber.org/zap"
-	//"github.com/aniketalshi/go_rest_cache/config"
+	"context"
+	"github.com/aniketalshi/go_rest_cache/config"
 	"github.com/aniketalshi/go_rest_cache/logging"
+	"github.com/aniketalshi/go_rest_cache/db"
 	"net/http"
 	"fmt"
 )
@@ -55,11 +57,25 @@ func main() {
 
 	fmt.Println("Http port :", *httpPort)
 	
+	// initialize the config
+	_, err := config.InitConfig()
+	if err != nil {
+		log.Fatal(err)
+	}
+	
 	// initialize the logger
 	logging.InitLogger()
+	
+	cacher := &Cacher {
+		gitClient: GetNewGithubClient(context.Background()),
+		dbClient: db.SetupDBClient(),
+	}
+
 
 	contexedHandler := SetupHandlers()
 
+	cacher.cache_repos()
+	cacher.cache_members()
 	log.Fatal(http.ListenAndServe(":3000", contexedHandler))
 }
 

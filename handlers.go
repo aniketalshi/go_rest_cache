@@ -1,6 +1,7 @@
 package main
 
 import(
+	//"fmt"
 	"net/http"
 	"github.com/gorilla/mux"
 	"net/http/httputil"
@@ -14,6 +15,16 @@ type Handlers struct
 
 // HandleCachedAPI handles the api responses for path which are pre-cached in redis
 func (hh *Handlers) HandleCachedAPI(w http.ResponseWriter, r *http.Request) {
+
+	//githubClient := GetNewGithubClient(r.Context())
+	//orgs, _, err := githubClient.Stub.Repositories.ListCommits(r.Context(), "google", "go-github", nil)
+	//
+	//if err != nil {
+	//	fmt.Println(err.Error())
+	//} else {
+	//	fmt.Println(orgs)
+	//}
+
 	hh.stub.ServeHTTP(w, r)	
 }
 
@@ -27,7 +38,19 @@ func SetupHandlers() http.Handler{
 
 	configuration := []ProxyConfig{
 		ProxyConfig{
+			Path: "/",
+			Host: "api.github.com",
+		},
+		ProxyConfig{
 			Path: "/orgs/Netflix",
+			Host: "api.github.com",
+		},
+		ProxyConfig{
+			Path: "/orgs/Netflix/members",
+			Host: "api.github.com",
+		},
+		ProxyConfig{
+			Path: "/orgs/Netflix/repos",
 			Host: "api.github.com",
 		},
 	}

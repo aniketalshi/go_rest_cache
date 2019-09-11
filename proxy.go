@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"time"
 	"net"
 	"net/http"
@@ -13,22 +14,6 @@ import (
 
 // refers to context of underlying process
 var httpContext = context.Background()
-
-// ReverseProxy is a container for proxy stub and corresponding handler interfaces
-//type ReverseProxy struct 
-//{
-//	stub *httputil.ReverseProxy
-//}
-//
-//// HandleCachedAPI handles the api responses for path which are pre-cached in redis
-//func (rp *ReverseProxy) HandleCachedAPI(w http.ResponseWriter, r *http.Request) {
-//	rp.stub.ServeHTTP(w, r)	
-//}
-//
-//// HandleDefaults is the default http handler
-//func (rp *ReverseProxy) HandleDefaults (w http.ResponseWriter, r *http.Request) {
-//	rp.stub.ServeHTTP(w, r)	
-//}
 
 // SetupInterceptor is a middleware function which acts like a wrapper over handler
 // Generates request id, associate it with the context which is passed along api calls
@@ -54,9 +39,12 @@ func SetupInterceptor(next http.Handler) http.Handler {
 	})
 }
 
+//type HandlerPtr func(http.ResponseWriter, *http.Request)
+
 type ProxyConfig struct {
 	Path     string
 	Host     string
+	//Handler  HandlerPtr
 }
 
 //func GenerateProxy(conf ProxyConfig) http.Handler {
@@ -67,6 +55,7 @@ func GenerateProxy(conf ProxyConfig) *httputil.ReverseProxy {
 		originHost := conf.Host
 		req.Header.Add("X-Forwarded-Host", req.Host)
 		req.Header.Add("X-Origin-Host", originHost)
+		req.Header.Add("Authorization", os.Getenv("GITHUB_API_TOKEN"))
 		req.Host = originHost
 		req.URL.Host = originHost
 		req.URL.Scheme = "https"

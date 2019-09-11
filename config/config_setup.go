@@ -29,6 +29,10 @@ func (c *Config) GetServerPort() string {
 	return c.Server.Port
 }
 
+func (c *Config) GetRedisURL() string {
+	return c.Redis.Url
+}
+
 // InitConfig initializes the config object for our program. Typically to be called before starting server instance
 func InitConfig() (*Config, error) {
 
