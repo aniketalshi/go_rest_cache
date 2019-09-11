@@ -4,17 +4,17 @@ import (
 	"context"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"fmt"
 )
 
 var logger *zap.Logger
 
-const (
-	requestIDKey = 0
-)
+type requestIDKey struct{}
 
+// initializes the default logger with custom options 
 func InitLogger() {
 	
-	// establishes the root logger to fallback 	
+	// options to customize the logging output	
     cfg := zap.Config{
         Encoding:         "json",
         Level:            zap.NewAtomicLevelAt(zapcore.DebugLevel),
@@ -33,8 +33,13 @@ func InitLogger() {
             EncodeCaller: zapcore.ShortCallerEncoder,
  		},
     }
-
-    logger, _ = cfg.Build()
+	
+	var err error
+    logger, err = cfg.Build()
+	if err != nil {
+		fmt.Printf("Unable to build logger : %s\n", err.Error())
+		return
+	}
 }
 
 // Logger returns the zap logger instance
@@ -44,7 +49,7 @@ func GetLogger() *zap.Logger {
 
 // WithReqID returns a conext attaching key to the context
 func WithRequestID(ctx context.Context, requestID string) context.Context {
-	return context.WithValue(ctx, requestIDKey, requestID)
+	return context.WithValue(ctx, requestIDKey{}, requestID)
 }
 
 // Logger retruns the logger with context info stored
@@ -52,7 +57,7 @@ func Logger(ctx context.Context) *zap.Logger {
 	
 	if ctx != nil {
 		 // retreive the request id from context and attach that info to logger
-		 if ctxRequestId, ok := ctx.Value(requestIDKey).(string); ok {
+		 if ctxRequestId, ok := ctx.Value(requestIDKey{}).(string); ok {
                 logger = logger.With(zap.String("requestId", ctxRequestId))
          }
 	}

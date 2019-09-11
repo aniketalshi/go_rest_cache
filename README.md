@@ -3,4 +3,4 @@
 
 Improvements
 
-1. In setup script, check for previous installations before trying to install packages
+1. Round tripper to do http tracing

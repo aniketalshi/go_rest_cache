@@ -18,7 +18,7 @@ COPY . .
 # Builds
 RUN go build -o main .
 
-EXPOSE 8080
+EXPOSE 3000
 
 # Run the executable
 CMD ["./main"]

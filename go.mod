@@ -5,6 +5,8 @@ go 1.13
 require (
 	github.com/garyburd/redigo v1.6.0
 	github.com/go-redis/redis v6.15.5+incompatible
+	github.com/google/uuid v1.1.1
+	github.com/gorilla/mux v1.7.3
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/uber-go/zap v1.10.0
 	go.uber.org/atomic v1.4.0 // indirect
