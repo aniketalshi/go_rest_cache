@@ -92,4 +92,31 @@ func (cc *Cacher) get_repos() []github.Repository {
 	//return serializedRepos
 }
 
-func (cc *Cacher) get_members []github.
+func (cc *Cacher) get_members() []github.User {
+	
+	serializedMembers := cc.dbClient.Get("/orgs/Netflix/members")
+
+	var members []github.User
+	if err := json.Unmarshal(serializedMembers, &members); err != nil {
+		fmt.Println("Error unmarshalling repository struct", err.Error())
+    }	
+	
+	return members
+}
+
+func (cc *Cacher) get_org() github.Organization {
+	
+	serializedOrgInfo := cc.dbClient.Get("/orgs/Netflix")
+
+	var orgInfo github.Organization
+	if err := json.Unmarshal(serializedOrgInfo, &orgInfo); err != nil {
+		fmt.Println("Error unmarshalling org struct", err.Error())	
+	}
+
+	return orgInfo
+}
+
+func (cc *Cacher) get_root_endpoint() []byte {
+	serializedRootInfo := cc.dbClient.Get("/")
+	return serializedRootInfo
+}

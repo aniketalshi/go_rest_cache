@@ -1,7 +1,7 @@
 package main
 
 import(
-	//"fmt"
+	"fmt"
 	"net/http"
 	"github.com/gorilla/mux"
 	"net/http/httputil"
@@ -18,12 +18,27 @@ type Handlers struct
 
 // HandleCachedAPI handles the api responses for path which are pre-cached in redis
 func (hh *Handlers) HandleCachedAPI(w http.ResponseWriter, r *http.Request) {
-	//hh.stub.ServeHTTP(w, r)	
 	
 	if r.URL.Path == "/orgs/Netflix/repos" {
-
 		response := hh.cacher.get_repos()
 		json.NewEncoder(w).Encode(response)
+
+	} else if r.URL.Path == "/orgs/Netflix/members" {
+		response := hh.cacher.get_members()
+		json.NewEncoder(w).Encode(response)
+
+	} else if r.URL.Path == "/orgs/Netflix" {
+		response := hh.cacher.get_org()
+		json.NewEncoder(w).Encode(response)
+
+	} else if r.URL.Path == "/" {
+		response := hh.cacher.get_root_endpoint()
+		w.WriteHeader(200)
+		w.Write(response)
+
+	} else {
+		fmt.Println("The requested path is not supposed to be cached")
+		hh.stub.ServeHTTP(w, r)	
 	}
 }
 

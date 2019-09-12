@@ -1,6 +1,6 @@
 # the port server will expose 
 server:
-    port: 8000
+    port: 3000
 
 # this is overriden by REDIS_URL env set by docker but falls back to this if not set
 redis:
@@ -14,6 +14,6 @@ target:
     # GITHUB_API_TOKEN
     # TODO(@aniket.alshi) Remove this - antipattern to put secrets. 
     # Use flipr service to dynamically load secrets and config at runtime
-    token: "62dc4e2d66c75049ed3a24570da35142d4baf085"
+    token: "a04d46a68e73a054e363d9a9d7e2ff5ffa01eefe"
     # timeout on tcp connection we want to impose
     timeout: 5 
