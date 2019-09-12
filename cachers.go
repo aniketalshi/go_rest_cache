@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"github.com/aniketalshi/go_rest_cache/db"
+	"github.com/google/go-github/v28/github"
 	"encoding/json"
 	"fmt"
 )
@@ -27,7 +28,7 @@ func (cc *Cacher) cache_repos() {
 		fmt.Println("Error trying to marshal repository struct", err.Error())
 		os.Exit(1)
 	}
-	
+
 	cc.dbClient.Set("/orgs/Netflix/repos", js)
 }
 
@@ -47,3 +48,48 @@ func (cc *Cacher) cache_members() {
 	
 	cc.dbClient.Set("/orgs/Netflix/members", js)
 }
+
+func (cc *Cacher) cache_org_details() {
+
+	orgInfo, err := cc.gitClient.GetOrgDetails()
+	if err != nil {
+		fmt.Println("Error getting the org info", err.Error())
+		os.Exit(1)
+	}
+
+	js, err := json.Marshal(orgInfo)
+	if err != nil {
+		fmt.Println("Error trying to marshal organization struct", err.Error())
+		os.Exit(1)
+	}
+	
+	cc.dbClient.Set("/orgs/Netflix", js)
+}
+
+func (cc *Cacher) cache_root_endpoint() {
+	
+	resp, err := cc.gitClient.GetRootInfo()
+	if err != nil {
+		fmt.Println("Error getting the root node", err.Error())
+		os.Exit(1)
+	}
+	cc.dbClient.Set("/", resp)
+}
+
+func (cc *Cacher) get_repos() []github.Repository {
+	
+	serializedRepos := cc.dbClient.Get("/orgs/Netflix/repos")
+	
+	var repos []github.Repository
+	if err := json.Unmarshal(serializedRepos, &repos); err != nil {
+		fmt.Println("Error unmarshalling repository struct", err.Error())
+    }	
+	
+	return repos
+	//for _, repo := range repos {
+	//	fmt.Println(*repo.FullName)
+	//}
+	//return serializedRepos
+}
+
+func (cc *Cacher) get_members []github.

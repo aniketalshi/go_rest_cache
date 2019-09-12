@@ -72,10 +72,15 @@ func main() {
 	}
 
 
-	contexedHandler := SetupHandlers()
+	contexedHandler := SetupHandlers(cacher)
 
 	cacher.cache_repos()
 	cacher.cache_members()
+	cacher.cache_org_details()
+	cacher.cache_root_endpoint()
+
+
+	cacher.get_repos()
 	log.Fatal(http.ListenAndServe(":3000", contexedHandler))
 }
 

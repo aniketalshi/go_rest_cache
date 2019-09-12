@@ -1,7 +1,6 @@
 package main
 
 import (
-	"os"
 	"time"
 	"net"
 	"net/http"
@@ -10,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"github.com/aniketalshi/go_rest_cache/logging"
+	"github.com/aniketalshi/go_rest_cache/config"
 )
 
 // refers to context of underlying process
@@ -39,30 +39,22 @@ func SetupInterceptor(next http.Handler) http.Handler {
 	})
 }
 
-//type HandlerPtr func(http.ResponseWriter, *http.Request)
-
-type ProxyConfig struct {
-	Path     string
-	Host     string
-	//Handler  HandlerPtr
-}
-
-//func GenerateProxy(conf ProxyConfig) http.Handler {
-func GenerateProxy(conf ProxyConfig) *httputil.ReverseProxy {
+func GenerateProxy() *httputil.ReverseProxy {
+	
+	// get the configuration parameters about the upstream target 
+	origin := config.GetConfig().GetTarget()
 
 	proxy := &httputil.ReverseProxy{Director: func(req *http.Request) {
-
-		originHost := conf.Host
 		req.Header.Add("X-Forwarded-Host", req.Host)
-		req.Header.Add("X-Origin-Host", originHost)
-		req.Header.Add("Authorization", os.Getenv("GITHUB_API_TOKEN"))
-		req.Host = originHost
-		req.URL.Host = originHost
+		req.Header.Add("X-Origin-Host", origin.Url)
+		req.Header.Add("Authorization", origin.Token)
+		req.Host = origin.Url
+		req.URL.Host = origin.Url
 		req.URL.Scheme = "https"
 
 	}, Transport: &http.Transport{
 		Dial: (&net.Dialer{
-			Timeout: 5 * time.Second,
+			Timeout: time.Duration(origin.Timeout) * time.Second,
 		}).Dial,
 	}}
 

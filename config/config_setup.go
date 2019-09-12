@@ -10,6 +10,14 @@ const (
 	CONFIG_FILE = "config/config.yaml"
 )
 
+
+type UpstreamTarget struct {
+	Scheme  string `yaml:"scheme",  envconfig:"TARGET_SCHEME"`
+	Url     string `yaml:"url",     envconfig:"TARGET_URL"`
+	Token   string `yaml:"token",   envconfig: "GITHUB_API_TOKEN"`
+	Timeout int    `yaml:"timeout", envconfig: "REQUEST_TIMEOUT"`
+}
+
 // Config struct holds all important configuration paramters which 
 // are read from config.yaml file and can be overriden by env variables
 type Config struct
@@ -19,7 +27,8 @@ type Config struct
 	} `yaml:"server"`
 	Redis struct {
 		Url string `yaml:"url", envconfig:"REDIS_URL"`
-	} `yaml:"REDIS_URL"`
+	} `yaml:"redis"`
+	Target UpstreamTarget `yaml:"target"`
 }
 
 var conf *Config
@@ -31,6 +40,10 @@ func (c *Config) GetServerPort() string {
 
 func (c *Config) GetRedisURL() string {
 	return c.Redis.Url
+}
+
+func (c* Config) GetTarget() UpstreamTarget {
+	return c.Target
 }
 
 // InitConfig initializes the config object for our program. Typically to be called before starting server instance

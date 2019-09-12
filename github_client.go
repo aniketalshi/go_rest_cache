@@ -1,11 +1,13 @@
 package main
 
 import(
-	"os"
 	"github.com/google/go-github/v28/github"
 	"golang.org/x/oauth2"
 	"context"
 	"github.com/aniketalshi/go_rest_cache/logging"
+	"net/http"
+	"io/ioutil"
+	"github.com/aniketalshi/go_rest_cache/config"
 )
 
 type GithubClient struct
@@ -17,7 +19,7 @@ type GithubClient struct
 func GetNewGithubClient(ctx context.Context) *GithubClient {
 
 	// GITHUB api token is required for overcoming ratelimit while querying the apis
-	apiToken := os.Getenv("GITHUB_API_TOKEN")
+	apiToken := config.GetConfig().Target.Token
 	
 	var client *github.Client	
 	// check if token is set
@@ -31,7 +33,6 @@ func GetNewGithubClient(ctx context.Context) *GithubClient {
 	} else {
 
 		logging.Logger(ctx).Error("GITHUB API TOKEN is not set")
-
 		client = github.NewClient(nil)
 	}
 
@@ -90,4 +91,42 @@ func (gc *GithubClient) GetMembers() ([]*github.User, error) {
 	}
 
 	return allMembers, nil
+}
+
+func (gc *GithubClient) GetOrgDetails() (*github.Organization, error) {
+
+	org, _, err := gc.Stub.Organizations.Get(gc.ctx, "Netflix")
+	return org, err
+}
+
+// GetRootInfo queries the root endpoint 
+// github client api does not method to query root endpoint. 
+// So querying manually bypassing the client
+func (gc *GithubClient) GetRootInfo() ([]byte, error) {
+
+	target := config.GetConfig().Target
+	
+	url := target.Scheme + "://" + target.Url
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	
+	// API Token to overcome ratelimit	
+	req.Header.Add("Authorization", target.Token)
+	client := &http.Client{}
+
+	// issue the request
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	
+	// this is crucial to make sure resp.Body is closed after 
+	// we open it for reading it into buffer
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	return body, err
 }

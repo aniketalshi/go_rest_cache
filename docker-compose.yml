@@ -15,7 +15,6 @@ services:
       - redis 
     environment: 
       REDIS_URL: redis:6379    
-      GITHUB_API_TOKEN: "62dc4e2d66c75049ed3a24570da35142d4baf085"
     networks: 
       - backend
 
