@@ -6,6 +6,7 @@ import(
 	"github.com/gorilla/mux"
 	"net/http/httputil"
 	"encoding/json"
+	"strconv"
 	//"github.com/google/go-github/v28/github"
 )
 
@@ -47,6 +48,38 @@ func (hh *Handlers) HandleDefaults (w http.ResponseWriter, r *http.Request) {
 	hh.stub.ServeHTTP(w, r)	
 }
 
+func (hh *Handlers) GetTopForkedRepos (w http.ResponseWriter, r *http.Request) {
+	hh.HandleViews(w, r, "top-repo-by-forks")
+}
+
+func (hh *Handlers) GetLastUpdatedRepos (w http.ResponseWriter, r *http.Request) {
+	hh.HandleViews(w, r, "top-repo-by-lastupdated")
+}
+
+func (hh *Handlers) GetTopOpenIssuesRepos (w http.ResponseWriter, r *http.Request) {
+	hh.HandleViews(w, r, "top-repo-by-openissues")
+}
+
+func (hh *Handlers) GetTopStarredRepos (w http.ResponseWriter, r *http.Request) {
+	hh.HandleViews(w, r, "top-repo-by-stars")
+}
+
+func (hh *Handlers) HandleViews(w http.ResponseWriter, r *http.Request, key string) {
+
+	vars := mux.Vars(r)
+
+	limit, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		fmt.Println("Wrong count specified", err.Error())
+		w.WriteHeader(400)
+		return
+	}
+   
+	response := hh.cacher.get_view(key, limit)
+
+	json.NewEncoder(w).Encode(response)
+}
+
 func SetupHandlers(cacher *Cacher) http.Handler{
 	r := mux.NewRouter()
 
@@ -65,6 +98,13 @@ func SetupHandlers(cacher *Cacher) http.Handler{
 		r.HandleFunc(conf, proxy.HandleCachedAPI)
 	}
 	
+	// handlers for views we have constructed over repository data
+	viewr := r.PathPrefix("/view").Subrouter()
+	viewr.HandleFunc("/top/{id}/forks", proxy.GetTopForkedRepos)
+	viewr.HandleFunc("/top/{id}/last_updated", proxy.GetLastUpdatedRepos)
+	viewr.HandleFunc("/top/{id}/open_issues", proxy.GetTopOpenIssuesRepos)
+	viewr.HandleFunc("/top/{id}/stars", proxy.GetTopStarredRepos)
+
 	// fallback to default handler for all the rest of paths
 	r.PathPrefix("/").HandlerFunc(proxy.HandleDefaults)
 	

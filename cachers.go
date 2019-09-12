@@ -7,11 +7,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strconv"
 )
 
 type Cacher struct {
 	gitClient *GithubClient
 	dbClient *db.DBClient
+}
+
+type ViewResult struct {
+	Repo string	 `json:"repo"`
+	Count string `json:"count"`
 }
 
 // Queries the github api to fetch all the repos for a given organization and caches 
@@ -72,6 +78,47 @@ func (cc *Cacher) populate_views() {
 	})
 }
 
+func (cc *Cacher) get_view(key string, limit int) []ViewResult {
+
+	serializedRepos := cc.dbClient.Get(key)
+	
+	var repos []github.Repository
+	if err := json.Unmarshal(serializedRepos, &repos); err != nil {
+		fmt.Println("Error unmarshalling repository struct", err.Error())
+    }	
+	
+	var result []ViewResult
+	counter := 1
+
+	for _, repo := range repos {
+		
+		var count string
+		if key == "top-repo-by-forks" {
+			count = strconv.Itoa(*repo.ForksCount)
+		} else if key == "top-repo-by-lastupdated" {
+			count = repo.UpdatedAt.Time.String()
+		} else if key == "top-repo-by-openissues" {
+			count = strconv.Itoa(*repo.OpenIssuesCount)
+		} else if key == "top-repo-by-stars" {
+			count = strconv.Itoa(*repo.StargazersCount)
+		}
+
+		res := ViewResult{
+			Repo: *repo.FullName,
+			Count: count,
+		}
+		
+		result = append(result, res)
+
+		if counter == limit {
+			break
+		}
+		counter += 1
+	}
+
+	return result
+}
+
 func (cc *Cacher) cache_members() {
 
 	users, err := cc.gitClient.GetMembers()
@@ -126,10 +173,6 @@ func (cc *Cacher) get_repos() []github.Repository {
     }	
 	
 	return repos
-	//for _, repo := range repos {
-	//	fmt.Println(*repo.FullName)
-	//}
-	//return serializedRepos
 }
 
 func (cc *Cacher) get_members() []github.User {

@@ -14,6 +14,6 @@ target:
     # GITHUB_API_TOKEN
     # TODO(@aniket.alshi) Remove this - antipattern to put secrets. 
     # Use flipr service to dynamically load secrets and config at runtime
-    token: "a04d46a68e73a054e363d9a9d7e2ff5ffa01eefe"
+    token: "49c465be5d072e68afc6efe2409935eb6d288a8e"
     # timeout on tcp connection we want to impose
     timeout: 5 
