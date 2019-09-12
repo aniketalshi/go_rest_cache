@@ -19,7 +19,7 @@ type GithubClient struct
 func GetNewGithubClient(ctx context.Context) *GithubClient {
 
 	// GITHUB api token is required for overcoming ratelimit while querying the apis
-	apiToken := config.GetConfig().Target.Token
+	apiToken := config.GetConfig().GetTargetToken()
 	
 	var client *github.Client	
 	// check if token is set
@@ -104,9 +104,9 @@ func (gc *GithubClient) GetOrgDetails() (*github.Organization, error) {
 // So querying manually bypassing the client
 func (gc *GithubClient) GetRootInfo() ([]byte, error) {
 
-	target := config.GetConfig().Target
+	token := config.GetConfig().GetTargetToken()
 	
-	url := target.Scheme + "://" + target.Url
+	url := config.GetConfig().GetTargetScheme() + "://" + config.GetConfig().GetTargetUrl()
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -114,7 +114,7 @@ func (gc *GithubClient) GetRootInfo() ([]byte, error) {
 	}
 	
 	// API Token to overcome ratelimit	
-	req.Header.Add("Authorization", target.Token)
+	req.Header.Add("Authorization", token)
 	client := &http.Client{}
 
 	// issue the request

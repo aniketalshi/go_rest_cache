@@ -39,23 +39,24 @@ func SetupInterceptor(next http.Handler) http.Handler {
 func GenerateProxy() *httputil.ReverseProxy {
 	
 	// get the configuration parameters about the upstream target 
-	origin := config.GetConfig().GetTarget()
+	token := config.GetConfig().GetTargetToken()
+	url := config.GetConfig().GetTargetUrl()
 
-	if origin.Token == "" {
+	if token == "" {
 		fmt.Println("Token is not set")
 	}
 
 	proxy := &httputil.ReverseProxy{Director: func(req *http.Request) {
 		req.Header.Add("X-Forwarded-Host", req.Host)
-		req.Header.Add("X-Origin-Host", origin.Url)
-		req.Header.Add("Authorization", origin.Token)
-		req.Host = origin.Url
-		req.URL.Host = origin.Url
+		req.Header.Add("X-Origin-Host", url)
+		req.Header.Add("Authorization", token)
+		req.Host = url
+		req.URL.Host = url
 		req.URL.Scheme = "https"
 
 	}, Transport: &http.Transport{
 		Dial: (&net.Dialer{
-			Timeout: time.Duration(origin.Timeout) * time.Second,
+			Timeout: time.Duration(config.GetConfig().GetTargetTimeout()) * time.Second,
 		}).Dial,
 	}}
 

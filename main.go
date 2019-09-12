@@ -12,7 +12,6 @@ import (
 	"github.com/aniketalshi/go_rest_cache/logging"
 	"github.com/aniketalshi/go_rest_cache/db"
 	"net/http"
-	"fmt"
 )
 
 func main() {
@@ -21,8 +20,6 @@ func main() {
 	// parse all cmdline flags
 	flag.Parse()
 
-	fmt.Println("Http port :", *httpPort)
-	
 	// initialize the config
 	_, err := config.InitConfig()
 	if err != nil {

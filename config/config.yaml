@@ -4,16 +4,17 @@ server:
 
 # this is overriden by REDIS_URL env set by docker but falls back to this if not set
 redis:
-    url: "localhost:6379" 
+    url: "redis:6379"
 
 # the final upstream target cache will route requests to
 target:
     scheme: "https"
     url: "api.github.com"
 
-    # GITHUB_API_TOKEN
-    # TODO(@aniket.alshi) Remove this - antipattern to put secrets. 
+    # GITHUB_API_TOKEN - is available from env variables
+    # TODO(@aniket.alshi) Don't use this - antipattern to put secrets here.
     # Use flipr service to dynamically load secrets and config at runtime
-    # timeout on tcp connection we want to impose
     token : ""
+
+    # timeout on tcp connection we want to impose
     timeout: 5 

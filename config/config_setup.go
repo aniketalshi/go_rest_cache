@@ -3,7 +3,6 @@ package config
 import (
 	"os"
 	"gopkg.in/yaml.v2"
-	"github.com/kelseyhightower/envconfig"
 )
 
 const (
@@ -11,24 +10,23 @@ const (
 )
 
 
-type UpstreamTarget struct {
-	Scheme  string `yaml:"scheme",  envconfig:"TARGET_SCHEME"`
-	Url     string `yaml:"url",     envconfig:"TARGET_URL"`
-	Token   string `yaml:"token",   envconfig: "GITHUB_API_TOKEN"`
-	Timeout int    `yaml:"timeout", envconfig: "REQUEST_TIMEOUT"`
-}
 
 // Config struct holds all important configuration paramters which 
 // are read from config.yaml file and can be overriden by env variables
 type Config struct
 {
 	Server struct {
-		Port string `yaml:"port", envconfig:"SERVER_PORT"`
+		Port string `yaml:"port"`
 	} `yaml:"server"`
 	Redis struct {
-		Url string `yaml:"url", envconfig:"REDIS_URL"`
+		Url string `yaml:"url"`
 	} `yaml:"redis"`
-	Target UpstreamTarget `yaml:"target"`
+	UpstreamTarget struct {
+	    Scheme  string `yaml:"scheme"`
+	    Url     string `yaml:"url"`
+	    Token   string `yaml:"token"`
+	    Timeout int    `yaml:"timeout"`
+	} `yaml:"target"`
 }
 
 var conf *Config
@@ -42,8 +40,20 @@ func (c *Config) GetRedisURL() string {
 	return c.Redis.Url
 }
 
-func (c* Config) GetTarget() UpstreamTarget {
-	return c.Target
+func (c* Config) GetTargetToken() string {
+	return c.UpstreamTarget.Token
+}
+
+func (c* Config) GetTargetScheme() string {
+	return c.UpstreamTarget.Scheme
+}
+
+func (c* Config) GetTargetUrl() string {
+	return c.UpstreamTarget.Url
+}
+
+func (c* Config) GetTargetTimeout() int {
+	return c.UpstreamTarget.Timeout
 }
 
 // InitConfig initializes the config object for our program. Typically to be called before starting server instance
@@ -89,9 +99,12 @@ func readFromFile(cfg *Config) (err error) {
 // reads from env variables and assigns it to struct
 func readFromEnv(cfg *Config) (err error) {
 	
-	if err := envconfig.Process("", cfg); err != nil {
-		return err
+	if os.Getenv("GITHUB_API_TOKEN") != "" {
+		cfg.UpstreamTarget.Token = os.Getenv("GITHUB_API_TOKEN")
 	}
 
+	if os.Getenv("REDIS_URL") != "" {
+		cfg.Redis.Url = os.Getenv("REDIS_URL")
+	}
 	return nil
 }
