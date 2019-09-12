@@ -114,7 +114,7 @@ func (gc *GithubClient) GetRootInfo() ([]byte, error) {
 	}
 	
 	// API Token to overcome ratelimit	
-	req.Header.Add("Authorization", token)
+	req.Header.Set("Authorization", "token " + token)
 	client := &http.Client{}
 
 	// issue the request
