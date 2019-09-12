@@ -5,7 +5,7 @@ import (
 	//"github.com/go-redis/redis"
 	"log"
 	//"go.uber.org/zap"
-	"time"
+	//"time"
 	//"strconv"
 	"context"
 	"github.com/aniketalshi/go_rest_cache/config"
@@ -39,22 +39,19 @@ func main() {
 
 	contexedHandler := SetupHandlers(cacher)
 	
-	done := make(chan bool)	
-
-	go cacher.cache_repos(done)
-	go cacher.cache_members(done)
-	go cacher.cache_org_details(done)
-	go cacher.cache_root_endpoint(done)
+	// used for synchronizing two different go routines so that one can 
+	// let the other know when data is cached
+	isCached := make(chan bool)
 	
-	time.Sleep(10 * time.Second)
-	go cacher.populate_views(done)
-
-	err = http.ListenAndServe(":" + *httpPort, contexedHandler)
+	go cacher.cache_repos(isCached)
+	go cacher.cache_members()
+	go cacher.cache_org_details()
+	go cacher.cache_root_endpoint()
 	
-	if err != nil {
-		// close all goroutines gracefully
-		done <- true
-		log.Fatal(err)
-	}
+	//time.Sleep(10 * time.Second)
+	go cacher.populate_views(isCached)
+
+	log.Fatal(http.ListenAndServe(":" + *httpPort, contexedHandler))
+	
 }
 

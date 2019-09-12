@@ -21,27 +21,20 @@ type ViewResult struct {
 	Count string `json:"count"`
 }
 
-func (cc *Cacher) schedule(done <-chan bool, cachingFunc func()) {
+func (cc *Cacher) schedule(cachingFunc func()) {
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 	
-	for {
-	    select {
-	    case <-done:
-	    	fmt.Println("Done!")
-	    	return
-
-	    case <-ticker.C:	
-			cachingFunc()
-		}
+	for ; true; <- ticker.C{
+		cachingFunc()
 	}
 }
 
 // Queries the github api to fetch all the repos for a given organization and caches 
 // the response into the redis
-func (cc *Cacher) cache_repos(done <-chan bool) {
+func (cc *Cacher) cache_repos(isCached chan<- bool) {
 
-	cc.schedule(done, func() {
+	cc.schedule(func() {
 	        repos, err := cc.gitClient.GetRepositories()
 	        if err != nil {
 	        	fmt.Println("Error getting the repositories", err.Error())
@@ -55,6 +48,9 @@ func (cc *Cacher) cache_repos(done <-chan bool) {
 	        }
 	    	
 	        cc.dbClient.Set("/orgs/Netflix/repos", js)
+	
+			// Nofity the go routine populating views that we have cached new repository data into redis
+			isCached <- true
 	})
 }
 
@@ -72,9 +68,13 @@ func (cc *Cacher) sort_and_insert_view(repos []github.Repository, key string, co
 	cc.dbClient.Set(key, js)
 }
 
-func (cc *Cacher) populate_views(done <-chan bool) {
+func (cc *Cacher) populate_views(isCached <-chan bool) {
 	
-	cc.schedule(done, func() {
+	cc.schedule(func() {
+	
+		// waiting on signal from go routine which has cached new repository data into redis
+		<-isCached
+	
 	    repos := cc.get_repos()
 	    
 	    // sort repo by forks and insert the sorted list in redis
@@ -140,9 +140,9 @@ func (cc *Cacher) get_view(key string, limit int) []ViewResult {
 	return result
 }
 
-func (cc *Cacher) cache_members(done <-chan bool) {
+func (cc *Cacher) cache_members() {
 
-	cc.schedule(done, func() {
+	cc.schedule(func() {
 	    users, err := cc.gitClient.GetMembers()
 	    if err != nil {
 	    	fmt.Println("Error getting the users", err.Error())
@@ -159,9 +159,9 @@ func (cc *Cacher) cache_members(done <-chan bool) {
 	})
 }
 
-func (cc *Cacher) cache_org_details(done <-chan bool) {
+func (cc *Cacher) cache_org_details() {
 
-	cc.schedule(done, func() {
+	cc.schedule(func() {
 	    orgInfo, err := cc.gitClient.GetOrgDetails()
 	    if err != nil {
 	    	fmt.Println("Error getting the org info", err.Error())
@@ -178,9 +178,9 @@ func (cc *Cacher) cache_org_details(done <-chan bool) {
 	})
 }
 
-func (cc *Cacher) cache_root_endpoint(done <-chan bool) {
+func (cc *Cacher) cache_root_endpoint() {
 	
-	cc.schedule (done, func() {
+	cc.schedule (func() {
 	    resp, err := cc.gitClient.GetRootInfo()
 	    if err != nil {
 	    	fmt.Println("Error getting the root node", err.Error())
