@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"time"
 	"github.com/aniketalshi/go_rest_cache/db"
 	"github.com/google/go-github/v28/github"
 	"encoding/json"
@@ -20,23 +21,41 @@ type ViewResult struct {
 	Count string `json:"count"`
 }
 
+func (cc *Cacher) schedule(done <-chan bool, cachingFunc func()) {
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+	
+	for {
+	    select {
+	    case <-done:
+	    	fmt.Println("Done!")
+	    	return
+
+	    case <-ticker.C:	
+			cachingFunc()
+		}
+	}
+}
+
 // Queries the github api to fetch all the repos for a given organization and caches 
 // the response into the redis
-func (cc *Cacher) cache_repos() {
-	
-	repos, err := cc.gitClient.GetRepositories()
-	if err != nil {
-		fmt.Println("Error getting the repositories", err.Error())
-		os.Exit(1)
-	}
+func (cc *Cacher) cache_repos(done <-chan bool) {
 
-	js, err := json.Marshal(repos)
-	if err != nil {
-		fmt.Println("Error trying to marshal repository struct", err.Error())
-		os.Exit(1)
-	}
+	cc.schedule(done, func() {
+	        repos, err := cc.gitClient.GetRepositories()
+	        if err != nil {
+	        	fmt.Println("Error getting the repositories", err.Error())
+	        	os.Exit(1)
+	        }
 
-	cc.dbClient.Set("/orgs/Netflix/repos", js)
+	        js, err := json.Marshal(repos)
+	        if err != nil {
+	        	fmt.Println("Error trying to marshal repository struct", err.Error())
+	        	os.Exit(1)
+	        }
+	    	
+	        cc.dbClient.Set("/orgs/Netflix/repos", js)
+	})
 }
 
 func (cc *Cacher) sort_and_insert_view(repos []github.Repository, key string, comparator func(int, int)bool) {
@@ -53,28 +72,30 @@ func (cc *Cacher) sort_and_insert_view(repos []github.Repository, key string, co
 	cc.dbClient.Set(key, js)
 }
 
-func (cc *Cacher) populate_views() {
+func (cc *Cacher) populate_views(done <-chan bool) {
 	
-	repos := cc.get_repos()
-	
-	// sort repo by forks and insert the sorted list in redis
-	cc.sort_and_insert_view(repos, "top-repo-by-forks", func(i, j int) bool {
-		return *(repos[i].ForksCount) > *(repos[j].ForksCount)
-	})
+	cc.schedule(done, func() {
+	    repos := cc.get_repos()
+	    
+	    // sort repo by forks and insert the sorted list in redis
+	    cc.sort_and_insert_view(repos, "top-repo-by-forks", func(i, j int) bool {
+	    	return *(repos[i].ForksCount) > *(repos[j].ForksCount)
+	    })
 
-	// sort by last updated 	
-	cc.sort_and_insert_view(repos, "top-repo-by-lastupdated", func(i, j int) bool {
-		return repos[i].UpdatedAt.Time.Sub(repos[j].UpdatedAt.Time) > 0
-	})
-	
-	// sort by number of open issues
-	cc.sort_and_insert_view(repos, "top-repo-by-openissues", func(i, j int) bool {
-		return *(repos[i].OpenIssuesCount) > *(repos[j].OpenIssuesCount)
-	})
+	    // sort by last updated 	
+	    cc.sort_and_insert_view(repos, "top-repo-by-lastupdated", func(i, j int) bool {
+	    	return repos[i].UpdatedAt.Time.Sub(repos[j].UpdatedAt.Time) > 0
+	    })
+	    
+	    // sort by number of open issues
+	    cc.sort_and_insert_view(repos, "top-repo-by-openissues", func(i, j int) bool {
+	    	return *(repos[i].OpenIssuesCount) > *(repos[j].OpenIssuesCount)
+	    })
 
-	// sort by number of stars
-	cc.sort_and_insert_view(repos, "top-repo-by-stars", func(i, j int) bool {
-		return *(repos[i].StargazersCount) > *(repos[j].StargazersCount)
+	    // sort by number of stars
+	    cc.sort_and_insert_view(repos, "top-repo-by-stars", func(i, j int) bool {
+	    	return *(repos[i].StargazersCount) > *(repos[j].StargazersCount)
+	    })
 	})
 }
 
@@ -96,7 +117,7 @@ func (cc *Cacher) get_view(key string, limit int) []ViewResult {
 		if key == "top-repo-by-forks" {
 			count = strconv.Itoa(*repo.ForksCount)
 		} else if key == "top-repo-by-lastupdated" {
-			count = repo.UpdatedAt.Time.String()
+			count = repo.UpdatedAt.Time.Format(time.RFC3339)
 		} else if key == "top-repo-by-openissues" {
 			count = strconv.Itoa(*repo.OpenIssuesCount)
 		} else if key == "top-repo-by-stars" {
@@ -119,48 +140,54 @@ func (cc *Cacher) get_view(key string, limit int) []ViewResult {
 	return result
 }
 
-func (cc *Cacher) cache_members() {
+func (cc *Cacher) cache_members(done <-chan bool) {
 
-	users, err := cc.gitClient.GetMembers()
-	if err != nil {
-		fmt.Println("Error getting the users", err.Error())
-		os.Exit(1)
-	}
+	cc.schedule(done, func() {
+	    users, err := cc.gitClient.GetMembers()
+	    if err != nil {
+	    	fmt.Println("Error getting the users", err.Error())
+	    	os.Exit(1)
+	    }
 
-	js, err := json.Marshal(users)
-	if err != nil {
-		fmt.Println("Error trying to marshal users struct", err.Error())
-		os.Exit(1)
-	}
-	
-	cc.dbClient.Set("/orgs/Netflix/members", js)
+	    js, err := json.Marshal(users)
+	    if err != nil {
+	    	fmt.Println("Error trying to marshal users struct", err.Error())
+	    	os.Exit(1)
+	    }
+	    
+	    cc.dbClient.Set("/orgs/Netflix/members", js)
+	})
 }
 
-func (cc *Cacher) cache_org_details() {
+func (cc *Cacher) cache_org_details(done <-chan bool) {
 
-	orgInfo, err := cc.gitClient.GetOrgDetails()
-	if err != nil {
-		fmt.Println("Error getting the org info", err.Error())
-		os.Exit(1)
-	}
+	cc.schedule(done, func() {
+	    orgInfo, err := cc.gitClient.GetOrgDetails()
+	    if err != nil {
+	    	fmt.Println("Error getting the org info", err.Error())
+	    	os.Exit(1)
+	    }
 
-	js, err := json.Marshal(orgInfo)
-	if err != nil {
-		fmt.Println("Error trying to marshal organization struct", err.Error())
-		os.Exit(1)
-	}
-	
-	cc.dbClient.Set("/orgs/Netflix", js)
+	    js, err := json.Marshal(orgInfo)
+	    if err != nil {
+	    	fmt.Println("Error trying to marshal organization struct", err.Error())
+	    	os.Exit(1)
+	    }
+	    
+	    cc.dbClient.Set("/orgs/Netflix", js)
+	})
 }
 
-func (cc *Cacher) cache_root_endpoint() {
+func (cc *Cacher) cache_root_endpoint(done <-chan bool) {
 	
-	resp, err := cc.gitClient.GetRootInfo()
-	if err != nil {
-		fmt.Println("Error getting the root node", err.Error())
-		os.Exit(1)
-	}
-	cc.dbClient.Set("/", resp)
+	cc.schedule (done, func() {
+	    resp, err := cc.gitClient.GetRootInfo()
+	    if err != nil {
+	    	fmt.Println("Error getting the root node", err.Error())
+	    	os.Exit(1)
+	    }
+	    cc.dbClient.Set("/", resp)
+	})
 }
 
 func (cc *Cacher) get_repos() []github.Repository {
@@ -181,7 +208,7 @@ func (cc *Cacher) get_members() []github.User {
 
 	var members []github.User
 	if err := json.Unmarshal(serializedMembers, &members); err != nil {
-		fmt.Println("Error unmarshalling repository struct", err.Error())
+		fmt.Println("Error unmarshalling member struct", err.Error())
     }	
 	
 	return members

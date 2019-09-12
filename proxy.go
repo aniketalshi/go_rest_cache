@@ -4,6 +4,7 @@ import (
 	"time"
 	"net"
 	"net/http"
+	"fmt"
 	"context"
 	"net/http/httputil"
 	"github.com/google/uuid"
@@ -43,6 +44,10 @@ func GenerateProxy() *httputil.ReverseProxy {
 	
 	// get the configuration parameters about the upstream target 
 	origin := config.GetConfig().GetTarget()
+
+	if origin.Token == "" {
+		fmt.Println("Token is not set")
+	}
 
 	proxy := &httputil.ReverseProxy{Director: func(req *http.Request) {
 		req.Header.Add("X-Forwarded-Host", req.Host)

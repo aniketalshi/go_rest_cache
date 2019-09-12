@@ -7,6 +7,7 @@ import(
 	"net/http/httputil"
 	"encoding/json"
 	"strconv"
+	"strings"
 	//"github.com/google/go-github/v28/github"
 )
 
@@ -77,7 +78,22 @@ func (hh *Handlers) HandleViews(w http.ResponseWriter, r *http.Request, key stri
    
 	response := hh.cacher.get_view(key, limit)
 
-	json.NewEncoder(w).Encode(response)
+	var craftedResp strings.Builder
+
+	craftedResp.WriteString("[")
+	for i, resp := range response {
+		fmt.Fprintf(&craftedResp, "[%s, %s]", resp.Repo, resp.Count)
+		if i != len(response)-1 {
+			craftedResp.WriteString(",")
+		}	
+	}
+	craftedResp.WriteString("]")
+
+	fmt.Fprintf(w, craftedResp.String())
+}
+
+func (hh *Handlers) Healthcheck(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(200)	
 }
 
 func SetupHandlers(cacher *Cacher) http.Handler{
@@ -87,6 +103,8 @@ func SetupHandlers(cacher *Cacher) http.Handler{
 		stub: GenerateProxy(),
 		cacher: cacher,	
 	}
+
+	r.HandleFunc("/healthcheck", proxy.Healthcheck)
 
 	cachedPaths := []string{"/",
 			           "/orgs/Netflix",
