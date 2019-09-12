@@ -21,22 +21,18 @@ var httpContext = context.Background()
 func SetupInterceptor(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 	
-		// TODO: add metrics 
-
 		// generate a unique request id
 		requestID := uuid.New()
-	
-		// tag the context with newly generated req id
-		requestCtx := logging.WithRequestID(r.Context(), requestID.String())
-	
-		// retreive the logger with this particular context settings
-		logger := logging.Logger(requestCtx)
-	
+
+		reqCtx := logging.NewContext(httpContext, zap.Stringer("requestID", requestID))
+
+		logger := logging.Logger(reqCtx)
+
 		logger.Info("Request received",
 					 zap.String("method", r.Method),
 					 zap.String("uri", r.RequestURI))
 
-		next.ServeHTTP(w, r.WithContext(requestCtx))
+		next.ServeHTTP(w, r.WithContext(reqCtx))
 	})
 }
 

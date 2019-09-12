@@ -4,7 +4,7 @@ server:
 
 # this is overriden by REDIS_URL env set by docker but falls back to this if not set
 redis:
-    url: "redis:6379" 
+    url: "localhost:6379" 
 
 # the final upstream target cache will route requests to
 target:

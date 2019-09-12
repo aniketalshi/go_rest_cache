@@ -6,6 +6,7 @@ import (
 	"log"
 	//"go.uber.org/zap"
 	"time"
+	//"strconv"
 	"context"
 	"github.com/aniketalshi/go_rest_cache/config"
 	"github.com/aniketalshi/go_rest_cache/logging"
@@ -15,7 +16,7 @@ import (
 )
 
 func main() {
-	httpPort := flag.Uint("http_port", 3000, "Port to listen for HTTP traffic")
+	httpPort := flag.String("http_port", "3000", "Port to listen for HTTP traffic")
 	
 	// parse all cmdline flags
 	flag.Parse()
@@ -48,7 +49,7 @@ func main() {
 	time.Sleep(10 * time.Second)
 	go cacher.populate_views(done)
 
-	err = http.ListenAndServe(":3000", contexedHandler)
+	err = http.ListenAndServe(":" + *httpPort, contexedHandler)
 	
 	if err != nil {
 		// close all goroutines gracefully

@@ -125,6 +125,6 @@ func SetupHandlers(cacher *Cacher) http.Handler{
 
 	// fallback to default handler for all the rest of paths
 	r.PathPrefix("/").HandlerFunc(proxy.HandleDefaults)
-	
-	return SetupInterceptor(r)	
+
+	return SetupInterceptor(r)
 }

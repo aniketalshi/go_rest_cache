@@ -9,7 +9,8 @@ import (
 
 var logger *zap.Logger
 
-type requestIDKey struct{}
+type requestIDKeyType int
+const requestIDKey requestIDKeyType = iota
 
 // initializes the default logger with custom options 
 func InitLogger() {
@@ -35,11 +36,13 @@ func InitLogger() {
     }
 	
 	var err error
-    logger, err = cfg.Build()
+    initalLogger, err := cfg.Build()
 	if err != nil {
 		fmt.Printf("Unable to build logger : %s\n", err.Error())
 		return
 	}
+
+	logger = initalLogger
 }
 
 // Logger returns the zap logger instance
@@ -47,20 +50,20 @@ func GetLogger() *zap.Logger {
 	return logger
 }
 
-// WithReqID returns a conext attaching key to the context
-func WithRequestID(ctx context.Context, requestID string) context.Context {
-	return context.WithValue(ctx, requestIDKey{}, requestID)
+func NewContext(ctx context.Context, fields ...zap.Field) context.Context {
+	
+	logger := Logger(ctx).With(fields...)
+
+	return context.WithValue(ctx, requestIDKey, logger)
 }
 
-// Logger retruns the logger with context info stored
-func Logger(ctx context.Context) *zap.Logger {
-	
-	if ctx != nil {
-		 // retreive the request id from context and attach that info to logger
-		 if ctxRequestId, ok := ctx.Value(requestIDKey{}).(string); ok {
-                logger = logger.With(zap.String("requestId", ctxRequestId))
-         }
+func Logger(ctx context.Context) *zap.Logger{
+	if ctx == nil {
+		return logger
 	}
 
+	if ctxLogger, ok := ctx.Value(requestIDKey).(*zap.Logger); ok {
+		return ctxLogger
+	}
 	return logger
 }
