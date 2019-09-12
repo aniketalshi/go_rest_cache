@@ -78,6 +78,7 @@ func main() {
 	cacher.cache_members()
 	cacher.cache_org_details()
 	cacher.cache_root_endpoint()
+	cacher.populate_views()
 
 
 	cacher.get_repos()

@@ -6,6 +6,7 @@ import (
 	"github.com/google/go-github/v28/github"
 	"encoding/json"
 	"fmt"
+	"sort"
 )
 
 type Cacher struct {
@@ -30,6 +31,45 @@ func (cc *Cacher) cache_repos() {
 	}
 
 	cc.dbClient.Set("/orgs/Netflix/repos", js)
+}
+
+func (cc *Cacher) sort_and_insert_view(repos []github.Repository, key string, comparator func(int, int)bool) {
+
+	// sort repos by comparator
+	sort.Slice(repos, comparator)
+
+	js, err := json.Marshal(repos)
+	if err != nil {
+		fmt.Println("Error trying to marshal repository struct", err.Error())
+		os.Exit(1)
+	}
+
+	cc.dbClient.Set(key, js)
+}
+
+func (cc *Cacher) populate_views() {
+	
+	repos := cc.get_repos()
+	
+	// sort repo by forks and insert the sorted list in redis
+	cc.sort_and_insert_view(repos, "top-repo-by-forks", func(i, j int) bool {
+		return *(repos[i].ForksCount) > *(repos[j].ForksCount)
+	})
+
+	// sort by last updated 	
+	cc.sort_and_insert_view(repos, "top-repo-by-lastupdated", func(i, j int) bool {
+		return repos[i].UpdatedAt.Time.Sub(repos[j].UpdatedAt.Time) > 0
+	})
+	
+	// sort by number of open issues
+	cc.sort_and_insert_view(repos, "top-repo-by-openissues", func(i, j int) bool {
+		return *(repos[i].OpenIssuesCount) > *(repos[j].OpenIssuesCount)
+	})
+
+	// sort by number of stars
+	cc.sort_and_insert_view(repos, "top-repo-by-stars", func(i, j int) bool {
+		return *(repos[i].StargazersCount) > *(repos[j].StargazersCount)
+	})
 }
 
 func (cc *Cacher) cache_members() {
