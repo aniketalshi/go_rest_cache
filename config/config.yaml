@@ -11,10 +11,12 @@ target:
     scheme: "https"
     url: "api.github.com"
 
-    # GITHUB_API_TOKEN - is available from env variables
-    # TODO(@aniket.alshi) Don't use this - antipattern to put secrets here.
-    # Use flipr service to dynamically load secrets and config at runtime
+    # API Token for upstream apis - is available from env variables
     token : ""
 
     # timeout on tcp connection we want to impose
     timeout: 5 
+
+# configuration params about the cache
+cache:
+    refresh: 10 # refresh rate in seconds for refreshing the cache 

@@ -9,6 +9,9 @@ const (
 	CONFIG_FILE = "config/config.yaml"
 )
 
+type CacheConfig struct {
+	RefreshInterval int `yaml:"refresh"`
+}
 
 
 // Config struct holds all important configuration paramters which 
@@ -18,15 +21,19 @@ type Config struct
 	Server struct {
 		Port string `yaml:"port"`
 	} `yaml:"server"`
+
 	Redis struct {
 		Url string `yaml:"url"`
 	} `yaml:"redis"`
+
 	UpstreamTarget struct {
 	    Scheme  string `yaml:"scheme"`
 	    Url     string `yaml:"url"`
 	    Token   string `yaml:"token"`
 	    Timeout int    `yaml:"timeout"`
 	} `yaml:"target"`
+
+	Cache CacheConfig `yaml:"cache"`
 }
 
 var conf *Config
@@ -54,6 +61,10 @@ func (c* Config) GetTargetUrl() string {
 
 func (c* Config) GetTargetTimeout() int {
 	return c.UpstreamTarget.Timeout
+}
+
+func (c* Config) GetCacheConfig() CacheConfig {
+	return c.Cache
 }
 
 // InitConfig initializes the config object for our program. Typically to be called before starting server instance
