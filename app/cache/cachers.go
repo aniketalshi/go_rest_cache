@@ -3,13 +3,14 @@ package cache
 import (
 	"os"
 	"time"
-	"github.com/aniketalshi/go_rest_cache/app/model"
-	"github.com/aniketalshi/go_rest_cache/config"
-	"github.com/google/go-github/v28/github"
 	"encoding/json"
 	"fmt"
 	"sort"
 	"strconv"
+
+	"github.com/aniketalshi/go_rest_cache/app/model"
+	"github.com/aniketalshi/go_rest_cache/config"
+	"github.com/google/go-github/v28/github"
 )
 
 // Cacher is responsible for maintaining go routines which peridoically cache data in redis 
@@ -65,7 +66,7 @@ func (cc *Cacher) CacheRepos(isCached chan<- bool) {
 	})
 }
 
-func (cc *Cacher) sort_and_insert_view(repos []github.Repository, key string, comparator func(int, int)bool) {
+func (cc *Cacher) SortAndSetView(repos []github.Repository, key string, comparator func(int, int)bool) {
 
 	// sort repos by comparator
 	sort.Slice(repos, comparator)
@@ -86,31 +87,31 @@ func (cc *Cacher) PopulateViews(isCached <-chan bool) {
 		// waiting on signal from go routine which has cached new repository data into redis
 		<-isCached
 	
-	    repos := cc.get_repos()
+	    repos := cc.GetRepos()
 	    
 	    // sort repo by forks and insert the sorted list in redis
-	    cc.sort_and_insert_view(repos, "top-repo-by-forks", func(i, j int) bool {
+	    cc.SortAndSetView(repos, "top-repo-by-forks", func(i, j int) bool {
 	    	return *(repos[i].ForksCount) > *(repos[j].ForksCount)
 	    })
 
 	    // sort by last updated 	
-	    cc.sort_and_insert_view(repos, "top-repo-by-lastupdated", func(i, j int) bool {
+	    cc.SortAndSetView(repos, "top-repo-by-lastupdated", func(i, j int) bool {
 	    	return repos[i].UpdatedAt.Time.Sub(repos[j].UpdatedAt.Time) > 0
 	    })
 	    
 	    // sort by number of open issues
-	    cc.sort_and_insert_view(repos, "top-repo-by-openissues", func(i, j int) bool {
+	    cc.SortAndSetView(repos, "top-repo-by-openissues", func(i, j int) bool {
 	    	return *(repos[i].OpenIssuesCount) > *(repos[j].OpenIssuesCount)
 	    })
 
 	    // sort by number of stars
-	    cc.sort_and_insert_view(repos, "top-repo-by-stars", func(i, j int) bool {
+	    cc.SortAndSetView(repos, "top-repo-by-stars", func(i, j int) bool {
 	    	return *(repos[i].StargazersCount) > *(repos[j].StargazersCount)
 	    })
 	})
 }
 
-func (cc *Cacher) get_view(key string, limit int) []ViewResult {
+func (cc *Cacher) GetView(key string, limit int) []ViewResult {
 
 	serializedRepos := cc.DBClient.Get(key)
 	
@@ -173,19 +174,13 @@ func (cc *Cacher) CacheMembers() {
 func (cc *Cacher) CacheOrgDetails() {
 
 	cc.schedule(func() {
-	    orgInfo, err := cc.GitClient.GetOrgDetails()
+		orgInfo, err := cc.GitClient.GetOrgDetails()
 	    if err != nil {
 	    	fmt.Println("Error getting the org info", err.Error())
 	    	os.Exit(1)
 	    }
 
-	    js, err := json.Marshal(orgInfo)
-	    if err != nil {
-	    	fmt.Println("Error trying to marshal organization struct", err.Error())
-	    	os.Exit(1)
-	    }
-	    
-	    cc.DBClient.Set("/orgs/Netflix", js)
+	    cc.DBClient.Set("/orgs/Netflix", orgInfo)
 	})
 }
 
@@ -201,7 +196,7 @@ func (cc *Cacher) CacheRootEndpoint() {
 	})
 }
 
-func (cc *Cacher) get_repos() []github.Repository {
+func (cc *Cacher) GetRepos() []github.Repository {
 	
 	serializedRepos := cc.DBClient.Get("/orgs/Netflix/repos")
 	
@@ -213,7 +208,7 @@ func (cc *Cacher) get_repos() []github.Repository {
 	return repos
 }
 
-func (cc *Cacher) get_members() []github.User {
+func (cc *Cacher) GetMembers() []github.User {
 	
 	serializedMembers := cc.DBClient.Get("/orgs/Netflix/members")
 
@@ -225,19 +220,14 @@ func (cc *Cacher) get_members() []github.User {
 	return members
 }
 
-func (cc *Cacher) get_org() github.Organization {
+func (cc *Cacher) GetOrg() []byte {
 	
 	serializedOrgInfo := cc.DBClient.Get("/orgs/Netflix")
 
-	var orgInfo github.Organization
-	if err := json.Unmarshal(serializedOrgInfo, &orgInfo); err != nil {
-		fmt.Println("Error unmarshalling org struct", err.Error())	
-	}
-
-	return orgInfo
+	return serializedOrgInfo
 }
 
-func (cc *Cacher) get_root_endpoint() []byte {
+func (cc *Cacher) GetRootEndpoint() []byte {
 	serializedRootInfo := cc.DBClient.Get("/")
 	return serializedRootInfo
 }

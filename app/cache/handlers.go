@@ -3,11 +3,12 @@ package cache
 import (
 	"fmt"
 	"net/http"
-	"github.com/gorilla/mux"
-	"net/http/httputil"
 	"encoding/json"
 	"strconv"
 	"strings"
+	"net/http/httputil"
+
+	"github.com/gorilla/mux"
 )
 
 // Handlers is a container for maintaining reference to all handlers and also maintains reference to reverse proxy stub 
@@ -21,19 +22,21 @@ type Handlers struct
 func (hh *Handlers) HandleCachedAPI(w http.ResponseWriter, r *http.Request) {
 	
 	if r.URL.Path == "/orgs/Netflix/repos" {
-		response := hh.cacher.get_repos()
+		response := hh.cacher.GetRepos()
 		json.NewEncoder(w).Encode(response)
 
 	} else if r.URL.Path == "/orgs/Netflix/members" {
-		response := hh.cacher.get_members()
+		response := hh.cacher.GetMembers()
 		json.NewEncoder(w).Encode(response)
 
 	} else if r.URL.Path == "/orgs/Netflix" {
-		response := hh.cacher.get_org()
-		json.NewEncoder(w).Encode(response)
+		response := hh.cacher.GetOrg()
+		//json.NewEncoder(w).Encode(response)
+		w.WriteHeader(200)
+		w.Write(response)
 
 	} else if r.URL.Path == "/" {
-		response := hh.cacher.get_root_endpoint()
+		response := hh.cacher.GetRootEndpoint()
 		w.WriteHeader(200)
 		w.Write(response)
 
@@ -76,7 +79,7 @@ func (hh *Handlers) HandleViews(w http.ResponseWriter, r *http.Request, key stri
 		return
 	}
    
-	response := hh.cacher.get_view(key, limit)
+	response := hh.cacher.GetView(key, limit)
 
 	var craftedResp strings.Builder
 

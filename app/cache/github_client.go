@@ -10,18 +10,21 @@ import (
 	"github.com/google/go-github/v28/github"
 )
 
+// GithubClient maintains instance of golang github client class and associated context
 type GithubClient struct
 {
 	Stub *github.Client	
 	ctx	 context.Context
 }
 
+// GetNewGithubClient will setup access tokens and setup a new github client 
 func GetNewGithubClient(ctx context.Context) *GithubClient {
 
 	// GITHUB api token is required for overcoming ratelimit while querying the apis
 	apiToken := config.GetConfig().GetTargetToken()
 
 	var client *github.Client	
+
 	// check if token is set
 	if apiToken != "" {
 		ts := oauth2.StaticTokenSource(
@@ -93,20 +96,33 @@ func (gc *GithubClient) GetMembers() ([]*github.User, error) {
 	return allMembers, nil
 }
 
-func (gc *GithubClient) GetOrgDetails() (*github.Organization, error) {
+// GetOrgDetails query /org/{org} endpoint 
+// We deliberately bypass github client here because it returns a repostiory struct
+// that is different than what we observe by curling endpoint directly - some fields are skipped.
+// That caused our unit-test to failed. So hitting endpoint directly.
+func (gc *GithubClient) GetOrgDetails() ([]byte, error) {
 
-	org, _, err := gc.Stub.Organizations.Get(gc.ctx, "Netflix")
-	return org, err
+	return gc.queryUpstream("/orgs/Netflix")
 }
 
 // GetRootInfo queries the root endpoint 
 // github client api does not method to query root endpoint. 
 // So querying manually bypassing the client
 func (gc *GithubClient) GetRootInfo() ([]byte, error) {
+	return gc.queryUpstream("")
+}
+
+// queryUpstream is internal function which is used for querying endpoint directly 
+// bypassing github client library
+func (gc *GithubClient) queryUpstream (path string) ([]byte, error) {
 
 	token := config.GetConfig().GetTargetToken()
 	
 	url := config.GetConfig().GetTargetScheme() + "://" + config.GetConfig().GetTargetUrl()
+
+	if path != "" {
+		url = url + path
+	}
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
