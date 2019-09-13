@@ -55,7 +55,7 @@ func (gc *GithubClient) GetRepositories() ([]*github.Repository, error) {
     // get all pages of results
     var allRepos []*github.Repository
     for {
-    	repos, resp, err := gc.Stub.Repositories.ListByOrg(gc.ctx, "Netflix", opt)
+    	repos, resp, err := gc.Stub.Repositories.ListByOrg(gc.ctx, config.GetConfig().GetOrg(), opt)
     	if err != nil {
     		return nil, err
     	}
@@ -79,7 +79,7 @@ func (gc *GithubClient) GetMembers() ([]*github.User, error) {
 
 	var allMembers []*github.User
 	for {
-		users, resp, err := gc.Stub.Organizations.ListMembers(gc.ctx, "Netflix", opt)
+		users, resp, err := gc.Stub.Organizations.ListMembers(gc.ctx, config.GetConfig().GetOrg(), opt)
 		if err != nil {
 			return nil, err
 		}
@@ -100,9 +100,8 @@ func (gc *GithubClient) GetMembers() ([]*github.User, error) {
 // We deliberately bypass github client here because it returns a repostiory struct
 // that is different than what we observe by curling endpoint directly - some fields are skipped.
 // That caused our unit-test to failed. So hitting endpoint directly.
-func (gc *GithubClient) GetOrgDetails() ([]byte, error) {
-
-	return gc.queryUpstream("/orgs/Netflix")
+func (gc *GithubClient) GetOrgDetails(url string) ([]byte, error) {
+	return gc.queryUpstream(url)
 }
 
 // GetRootInfo queries the root endpoint 
@@ -138,7 +137,7 @@ func (gc *GithubClient) queryUpstream (path string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// this is crucial to make sure resp.Body is closed after 
 	// we open it for reading it into buffer
 	defer resp.Body.Close()

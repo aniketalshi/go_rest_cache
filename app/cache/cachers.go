@@ -1,16 +1,18 @@
 package cache
 
 import (
-	"os"
 	"time"
 	"encoding/json"
-	"fmt"
 	"sort"
+	"context"
 	"strconv"
+
+	"go.uber.org/zap"
 
 	"github.com/aniketalshi/go_rest_cache/app/model"
 	"github.com/aniketalshi/go_rest_cache/config"
 	"github.com/google/go-github/v28/github"
+	"github.com/aniketalshi/go_rest_cache/app/logging"
 )
 
 // Cacher is responsible for maintaining go routines which peridoically cache data in redis 
@@ -44,22 +46,22 @@ func (cc *Cacher) schedule(cachingFunc func()) {
 
 // Queries the github api to fetch all the repos for a given organization and caches 
 // the response into the redis
-func (cc *Cacher) CacheRepos(isCached chan<- bool) {
+func (cc *Cacher) CacheRepos(isCached chan<- bool, url string) {
 
 	cc.schedule(func() {
 	        repos, err := cc.GitClient.GetRepositories()
 	        if err != nil {
-	        	fmt.Println("Error getting the repositories", err.Error())
-	        	os.Exit(1)
+				logging.Logger(context.Background()).Fatal("Error getting the repositories",
+					      									zap.String("msg", err.Error()))
 	        }
 
 	        js, err := json.Marshal(repos)
 	        if err != nil {
-	        	fmt.Println("Error trying to marshal repository struct", err.Error())
-	        	os.Exit(1)
+				logging.Logger(context.Background()).Fatal("Error trying to marshal repository struct",
+															zap.String("msg", err.Error()))
 	        }
 	    	
-	        cc.DBClient.Set("/orgs/Netflix/repos", js)
+	        cc.DBClient.Set(url, js)
 	
 			// Nofity the go routine populating views that we have cached new repository data into redis
 			isCached <- true
@@ -73,21 +75,28 @@ func (cc *Cacher) SortAndSetView(repos []github.Repository, key string, comparat
 
 	js, err := json.Marshal(repos)
 	if err != nil {
-		fmt.Println("Error trying to marshal repository struct", err.Error())
-		os.Exit(1)
+		logging.Logger(context.Background()).Fatal("Error trying to marshal repository struct",
+												   zap.String("msg", err.Error()))
 	}
 
 	cc.DBClient.Set(key, js)
 }
 
-func (cc *Cacher) PopulateViews(isCached <-chan bool) {
+func (cc *Cacher) PopulateViews(isCached <-chan bool, url string) {
 	
 	cc.schedule(func() {
 	
 		// waiting on signal from go routine which has cached new repository data into redis
 		<-isCached
 	
-	    repos := cc.GetRepos()
+		resp := cc.GetCachedEndpoint(url)
+	    var repos []github.Repository
+
+	    if err := json.Unmarshal(resp, &repos); err != nil {
+	    	logging.Logger(context.Background()).Error("Error unmarshalling repository struct",
+	    							  zap.String("msg", err.Error()))
+        }	
+
 	    
 	    // sort repo by forks and insert the sorted list in redis
 	    cc.SortAndSetView(repos, "top-repo-by-forks", func(i, j int) bool {
@@ -111,14 +120,20 @@ func (cc *Cacher) PopulateViews(isCached <-chan bool) {
 	})
 }
 
-func (cc *Cacher) GetView(key string, limit int) []ViewResult {
+func (cc *Cacher) GetView(ctx context.Context, key string, limit int) ([]ViewResult, error) {
 
 	serializedRepos := cc.DBClient.Get(key)
 	
 	var repos []github.Repository
 	if err := json.Unmarshal(serializedRepos, &repos); err != nil {
-		fmt.Println("Error unmarshalling repository struct", err.Error())
+
+		logging.Logger(ctx).Error("Error unmarshalling repository struct",
+								  zap.String("msg", err.Error()))
+		return nil, err
     }	
+
+	logging.Logger(ctx).Info("Repositories fetched for view",
+							zap.Int("Num Repos", len(repos)))
 	
 	var result []ViewResult
 	counter := 1
@@ -148,86 +163,61 @@ func (cc *Cacher) GetView(key string, limit int) []ViewResult {
 		}
 		counter += 1
 	}
-
-	return result
+	return result, nil
 }
 
-func (cc *Cacher) CacheMembers() {
+// CacheMembers caches data related to member of org into redis
+func (cc *Cacher) CacheMembers(url string) {
 
 	cc.schedule(func() {
 	    users, err := cc.GitClient.GetMembers()
-	    if err != nil {
-	    	fmt.Println("Error getting the users", err.Error())
-	    	os.Exit(1)
-	    }
 
-	    js, err := json.Marshal(users)
 	    if err != nil {
-	    	fmt.Println("Error trying to marshal users struct", err.Error())
-	    	os.Exit(1)
-	    }
-	    
-	    cc.DBClient.Set("/orgs/Netflix/members", js)
+	    	logging.Logger(context.Background()).Error("Error fetching members of org",
+											         zap.String("msg", err.Error()))
+	    } else {
+
+	        js, err := json.Marshal(users)
+	        if err != nil {
+	        	logging.Logger(context.Background()).Fatal("Error trying to marshal users struct",
+		    									         zap.String("msg", err.Error()))
+	        }
+	        
+	        cc.DBClient.Set(url, js)
+		}
 	})
 }
 
-func (cc *Cacher) CacheOrgDetails() {
+
+// CacheOrgDetails caches data from org endpoint into redis
+func (cc *Cacher) CacheOrgDetails(url string) {
 
 	cc.schedule(func() {
-		orgInfo, err := cc.GitClient.GetOrgDetails()
+		orgInfo, err := cc.GitClient.GetOrgDetails(url)
 	    if err != nil {
-	    	fmt.Println("Error getting the org info", err.Error())
-	    	os.Exit(1)
+	    	logging.Logger(context.Background()).Fatal("Error getting the org info",
+											         zap.String("msg", err.Error()))
 	    }
 
-	    cc.DBClient.Set("/orgs/Netflix", orgInfo)
+	    cc.DBClient.Set(url, orgInfo)
 	})
 }
 
-func (cc *Cacher) CacheRootEndpoint() {
+// CacheRootEndpoint caches the info from root endpoint into redis
+func (cc *Cacher) CacheRootEndpoint(url string) {
 	
 	cc.schedule (func() {
 	    resp, err := cc.GitClient.GetRootInfo()
 	    if err != nil {
-	    	fmt.Println("Error getting the root node", err.Error())
-	    	os.Exit(1)
+	    	logging.Logger(context.Background()).Fatal("Error getting the root node",
+											         zap.String("msg", err.Error()))
 	    }
-	    cc.DBClient.Set("/", resp)
+	    cc.DBClient.Set(url, resp)
 	})
 }
 
-func (cc *Cacher) GetRepos() []github.Repository {
-	
-	serializedRepos := cc.DBClient.Get("/orgs/Netflix/repos")
-	
-	var repos []github.Repository
-	if err := json.Unmarshal(serializedRepos, &repos); err != nil {
-		fmt.Println("Error unmarshalling repository struct", err.Error())
-    }	
-	
-	return repos
+// GetCachedEndpoint fetches the data from redis and serves response back to handler
+func (cc *Cacher) GetCachedEndpoint(path string) []byte {
+	return cc.DBClient.Get(path)
 }
 
-func (cc *Cacher) GetMembers() []github.User {
-	
-	serializedMembers := cc.DBClient.Get("/orgs/Netflix/members")
-
-	var members []github.User
-	if err := json.Unmarshal(serializedMembers, &members); err != nil {
-		fmt.Println("Error unmarshalling member struct", err.Error())
-    }	
-	
-	return members
-}
-
-func (cc *Cacher) GetOrg() []byte {
-	
-	serializedOrgInfo := cc.DBClient.Get("/orgs/Netflix")
-
-	return serializedOrgInfo
-}
-
-func (cc *Cacher) GetRootEndpoint() []byte {
-	serializedRootInfo := cc.DBClient.Get("/")
-	return serializedRootInfo
-}

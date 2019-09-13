@@ -8,6 +8,7 @@ import (
 	"github.com/aniketalshi/go_rest_cache/app/logging"
 	"github.com/aniketalshi/go_rest_cache/app/cache"
 	"github.com/aniketalshi/go_rest_cache/app/model"
+	"github.com/aniketalshi/go_rest_cache/config"
 )
 
 // App is high level server struct that acts as entrypoint
@@ -45,11 +46,15 @@ func (aa *App) Run() {
 	// let the other know when data is cached in redis.
 	isCached := make(chan bool)
 	
-	go aa.Cacher.CacheRepos(isCached)
-	go aa.Cacher.CacheMembers()
-	go aa.Cacher.CacheOrgDetails()
-	go aa.Cacher.CacheRootEndpoint()
+	orgURL := "/orgs/" + config.GetConfig().GetOrg()
+	memberURL := orgURL + "/members"
+	repoURL := orgURL + "/repos"
+
+	go aa.Cacher.CacheRepos(isCached, repoURL)
+	go aa.Cacher.CacheMembers(memberURL)
+	go aa.Cacher.CacheOrgDetails(orgURL)
+	go aa.Cacher.CacheRootEndpoint("/")
 	
-	go aa.Cacher.PopulateViews(isCached)
+	go aa.Cacher.PopulateViews(isCached, repoURL)
 }
 	
