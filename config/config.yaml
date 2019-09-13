@@ -20,3 +20,14 @@ target:
 # configuration params about the cache
 cache:
     refresh: 10 # refresh rate in seconds for refreshing the cache 
+
+# all the params about org that need to go into url
+org:
+    name: &name Netflix
+    
+    # endpoints that we want to cache
+    cached:
+        - /
+        - /orgs/*org_name
+        - /orgs/*org_name/members
+        - /orgs/*org_name/repos

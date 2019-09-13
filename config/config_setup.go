@@ -34,6 +34,11 @@ type Config struct
 	} `yaml:"target"`
 
 	Cache CacheConfig `yaml:"cache"`
+
+	Org struct {
+		Name string `yaml: "name"`
+		CachedURL []string `yaml:"cached"`
+	}
 }
 
 var conf *Config
@@ -65,6 +70,14 @@ func (c* Config) GetTargetTimeout() int {
 
 func (c* Config) GetCacheConfig() CacheConfig {
 	return c.Cache
+}
+
+func (c *Config) GetCachedURLs() []string {
+	return c.Org.CachedURL
+}
+
+func (c *Config) GetOrg() string {
+	return c.Org.Name
 }
 
 // InitConfig initializes the config object for our program. Typically to be called before starting server instance

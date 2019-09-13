@@ -4,11 +4,12 @@ import (
 	"time"
 	"net"
 	"net/http"
-	"fmt"
 	"context"
 	"net/http/httputil"
+
 	"github.com/google/uuid"
 	"go.uber.org/zap"
+
 	"github.com/aniketalshi/go_rest_cache/app/logging"
 	"github.com/aniketalshi/go_rest_cache/config"
 )
@@ -43,7 +44,7 @@ func GenerateProxy() *httputil.ReverseProxy {
 	url := config.GetConfig().GetTargetUrl()
 
 	if token == "" {
-		fmt.Println("Token is not set")
+		logging.Logger(context.Background()).Info("Token is not set")
 	}
 
 	proxy := &httputil.ReverseProxy{Director: func(req *http.Request) {

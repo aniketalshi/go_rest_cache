@@ -3,11 +3,15 @@ package cache
 import (
 	"fmt"
 	"net/http"
-	"github.com/gorilla/mux"
-	"net/http/httputil"
-	"encoding/json"
 	"strconv"
 	"strings"
+	"net/http/httputil"
+
+	"go.uber.org/zap"
+
+	"github.com/gorilla/mux"
+	"github.com/aniketalshi/go_rest_cache/app/logging"
+	"github.com/aniketalshi/go_rest_cache/config"
 )
 
 // Handlers is a container for maintaining reference to all handlers and also maintains reference to reverse proxy stub 
@@ -19,28 +23,21 @@ type Handlers struct
 
 // HandleCachedAPI handles the api responses for path which are pre-cached in redis
 func (hh *Handlers) HandleCachedAPI(w http.ResponseWriter, r *http.Request) {
-	
-	if r.URL.Path == "/orgs/Netflix/repos" {
-		response := hh.cacher.get_repos()
-		json.NewEncoder(w).Encode(response)
 
-	} else if r.URL.Path == "/orgs/Netflix/members" {
-		response := hh.cacher.get_members()
-		json.NewEncoder(w).Encode(response)
+	for _, url := range config.GetConfig().GetCachedURLs() {
+		if r.URL.Path == url {
+			response := hh.cacher.GetCachedEndpoint(url)
 
-	} else if r.URL.Path == "/orgs/Netflix" {
-		response := hh.cacher.get_org()
-		json.NewEncoder(w).Encode(response)
+			w.WriteHeader(200)
+			w.Write(response)
 
-	} else if r.URL.Path == "/" {
-		response := hh.cacher.get_root_endpoint()
-		w.WriteHeader(200)
-		w.Write(response)
-
-	} else {
-		fmt.Println("The requested path is not supposed to be cached")
-		hh.stub.ServeHTTP(w, r)	
+			return
+		}
 	}
+	
+    logging.Logger(r.Context()).Info("The requested path is not supposed to be cached",
+    								 zap.String("path", r.URL.Path))
+    hh.stub.ServeHTTP(w, r)	
 }
 
 // HandleDefaults is the default http handler
@@ -70,16 +67,27 @@ func (hh *Handlers) HandleViews(w http.ResponseWriter, r *http.Request, key stri
 	vars := mux.Vars(r)
 
 	limit, err := strconv.Atoi(vars["id"])
-	if err != nil {
-		fmt.Println("Wrong count specified", err.Error())
+	if err != nil || limit < 1 {
+
+		logging.Logger(r.Context()).Error("Wrong count specified", zap.String("msg", err.Error()))
+
 		w.WriteHeader(400)
+		w.Write([]byte("count incorrect in request"))
 		return
 	}
-   
-	response := hh.cacher.get_view(key, limit)
+	
+	// fetch the vewi from redis
+	response, err := hh.cacher.GetView(r.Context(), key, limit)
+
+	if err != nil {
+		w.WriteHeader(400)		
+		w.Write([]byte(err.Error()))
+		return
+	}
 
 	var craftedResp strings.Builder
-
+	
+	// craft the response as flattened list of lists
 	craftedResp.WriteString("[")
 	for i, resp := range response {
 		fmt.Fprintf(&craftedResp, "[%s, %s]", resp.Repo, resp.Count)
@@ -89,7 +97,11 @@ func (hh *Handlers) HandleViews(w http.ResponseWriter, r *http.Request, key stri
 	}
 	craftedResp.WriteString("]")
 
-	fmt.Fprintf(w, craftedResp.String())
+	logging.Logger(r.Context()).Info("custom view response", 
+									  zap.Int("len", len(response)))
+
+	w.WriteHeader(200)
+	w.Write([]byte(craftedResp.String()))
 }
 
 // a health check endpoint to let others know service is up and running
@@ -108,14 +120,8 @@ func SetupHandlers(cacher *Cacher) http.Handler{
 
 	r.HandleFunc("/healthcheck", proxy.Healthcheck)
 
-	cachedPaths := []string{"/",
-			           "/orgs/Netflix",
-			           "/orgs/Netflix/members",
-			           "/orgs/Netflix/repos",
-					 }
-
-	for _, conf := range cachedPaths {
-		r.HandleFunc(conf, proxy.HandleCachedAPI)
+	for _, url := range config.GetConfig().GetCachedURLs() {
+		r.HandleFunc(url, proxy.HandleCachedAPI)
 	}
 	
 	// handlers for views we have constructed over repository data
