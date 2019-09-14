@@ -26,6 +26,10 @@ func (hh *Handlers) HandleCachedAPI(w http.ResponseWriter, r *http.Request) {
 
 	for _, url := range config.GetConfig().GetCachedURLs() {
 		if r.URL.Path == url {
+
+			logging.Logger(r.Context()).Info("Path is cached, serving the response from redis.", 
+											 zap.String("path", r.URL.Path))
+
 			response := hh.cacher.GetCachedEndpoint(url)
 
 			w.WriteHeader(200)

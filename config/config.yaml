@@ -28,6 +28,6 @@ org:
     # endpoints that we want to cache
     cached:
         - /
-        - /orgs/*org_name
-        - /orgs/*org_name/members
-        - /orgs/*org_name/repos
+        - /orgs/Netflix
+        - /orgs/Netflix/members
+        - /orgs/Netflix/repos
